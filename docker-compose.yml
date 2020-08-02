@@ -1,0 +1,44 @@
+version: "3"
+
+services:
+  db:
+    image: postgres:13-alpine
+    environment:
+      - POSTGRES_DB=app
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=superusersecretpassword
+  redis:
+    image: "redis:alpine"
+  project:
+    build:
+      context: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./project:/project
+    command: >
+      sh -c "python manage.py runserver 0.0.0.0:8000"
+    environment:
+      - DB_HOST=db
+      - DB_NAME=app
+      - DB_USER=postgres
+      - DB_PASS=superusersecretpassword
+    depends_on:
+      - db
+      - redis
+  celery:
+    build: .
+    command: celery -A project worker -l info
+    volumes:
+      - .:/code
+    depends_on:
+      - db
+      - redis
+  celery-beat:
+    build: .
+    command: celery -A project beat -l info
+    volumes:
+      - ./project:/project
+    depends_on:
+      - db
+      - redis
